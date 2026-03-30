@@ -1,0 +1,3 @@
+﻿display_name: TI LLM Extract
+short_description: 威胁情报实体关系抽取
+default_prompt: 从文本提取实体、关系和证据并输出标准 JSON

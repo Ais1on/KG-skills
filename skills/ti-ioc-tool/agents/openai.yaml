@@ -1,0 +1,3 @@
+﻿display_name: TI IOC Tool
+short_description: IOC校验与归一化
+default_prompt: 清洗 IOC，输出合法指标与无效原因

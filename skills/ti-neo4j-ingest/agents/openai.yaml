@@ -1,0 +1,3 @@
+﻿display_name: TI Neo4j Ingest
+short_description: 威胁情报图谱入库
+default_prompt: 将结构化情报映射为Neo4j并输出幂等Cypher
