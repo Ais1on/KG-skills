@@ -63,3 +63,150 @@ skills/
 - 输出结构尽量统一，降低跨阶段字段对接成本。
 
 
+## LangGraph Agent（工具 + MCP + Skill）
+
+仓库已新增一个基于 LangGraph 的可运行 Agent，实现以下能力：
+
+- 工具加载：从 `local_tool_modules` 动态加载本地工具
+- MCP 加载：从 `mcp_servers` 配置加载 MCP 工具（可选依赖）
+- Skill 加载：自动扫描 `skills/*/SKILL.md` 和 `agents/openai.yaml`
+
+### 新增文件
+
+- `pyproject.toml`
+- `agent.example.yaml`
+- `src/kg_agent/`
+
+### 安装
+
+```bash
+pip install -e .
+```
+
+如果需要 MCP：
+
+```bash
+pip install -e .[mcp]
+```
+
+### 配置
+
+复制示例配置：
+
+```bash
+cp agent.example.yaml agent.yaml
+```
+
+PowerShell：
+
+```powershell
+Copy-Item agent.example.yaml agent.yaml
+```
+
+关键配置项：
+
+- `model`: 模型名（默认 `deepseek-chat`）
+- `skills_dir`: skill 根目录（默认 `skills`）
+- `local_tool_modules`: 本地工具模块列表（需暴露 `TOOLS` 或 `get_tools()`）
+- `api_base`: OpenAI 兼容接口地址（DeepSeek 默认 `https://api.deepseek.com/v1`）
+- `api_key_env`: 模型 API Key 的环境变量名（默认 `DEEPSEEK_API_KEY`）
+- `mcp_servers`: MCP server 配置（transport/command/args/env）
+
+### 启动
+
+先设置环境变量：
+
+```bash
+export DEEPSEEK_API_KEY=your_key
+```
+
+PowerShell：
+
+```powershell
+$env:DEEPSEEK_API_KEY="your_key"
+```
+
+单轮调用：
+
+```bash
+kg-agent --config agent.yaml --env-file .env --message "列出当前可用skills"
+```
+
+交互模式：
+
+```bash
+kg-agent --config agent.yaml --env-file .env
+```
+
+### Agent 内置 Skill 工具
+
+- `list_skills`: 列出已加载 skills
+- `read_skill(skill_name)`: 读取 skill 规范
+- `invoke_skill_tool(skill_name, payload_json)`: 执行 skill
+
+说明：若某个 skill 目录下存在 `executor.py` 且暴露 `run(payload)`，`invoke_skill_tool` 会执行真实逻辑；
+若不存在 `executor.py`，则自动使用该 skill 的 `SKILL.md` 规范作为系统提示，调用 LLM 执行（llm-from-spec 模式）。
+
+
+
+### Tavily 实时搜索工具
+
+内置工具 `tavily_search`，需在环境变量中提供 `TAVILY_API_KEY`。
+
+PowerShell：
+
+```powershell
+$env:TAVILY_API_KEY="your_key"
+```
+
+示例提问：
+
+```text
+请调用 tavily_search 搜索 "latest CVE for OpenSSH"，max_results=5，topic=news
+```
+
+
+
+## FastAPI Web 管理页面
+
+已提供 FastAPI 后端 + 单页前端，用于：
+
+- 创建 Agent
+- 配置 Tool 模块
+- 配置 MCP Servers
+- 查看/刷新 Skills
+- 直接发送聊天消息测试 Agent
+
+### 启动方式
+
+```powershell
+pip install -e .[mcp]
+kg-agent-web --host 127.0.0.1 --port 8000 --env-file .env
+```
+
+打开：`http://127.0.0.1:8000`
+
+### 主要接口
+
+- `GET /api/defaults`
+- `GET /api/skills?skills_dir=skills`
+- `GET /api/agents`
+- `POST /api/agents`
+- `GET /api/agents/{agent_id}`
+- `POST /api/agents/{agent_id}/chat`（非流式）
+- `GET /api/agents/{agent_id}/chat/stream?message=...&thread_id=...`（SSE 流式）
+- `POST /api/agents/{agent_id}/save`
+- `DELETE /api/agents/{agent_id}`
+
+### SSE 事件类型
+
+`/api/agents/{agent_id}/chat/stream` 会输出：
+
+- `status`：阶段状态（如 assistant_thinking、tool_execution）
+- `tool`：工具调用事件（planned/start/end）
+- `token`：模型增量文本
+- `error`：错误信息
+- `done`：流结束
+
+说明：页面展示的是运行阶段与工具调用动态，不暴露模型私有思维链。
+
