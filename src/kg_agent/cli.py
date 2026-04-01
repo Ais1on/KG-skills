@@ -8,7 +8,7 @@ from .config import load_config
 from .graph import build_agent
 
 
-def _load_dotenv(path: str) -> None:
+def load_dotenv(path: str) -> None:
     if not path or not os.path.exists(path):
         return
 
@@ -47,7 +47,7 @@ def main() -> None:
     parser = _build_parser()
     args = parser.parse_args()
 
-    _load_dotenv(args.env_file)
+    load_dotenv(args.env_file)
 
     config_path = args.config if os.path.exists(args.config) else None
     config = load_config(config_path)

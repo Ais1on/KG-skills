@@ -41,3 +41,22 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Frontend (Vite + React + TS)
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+
+# Runtime state
+.kg_agent/
+
+*.tsbuildinfo
+
+frontend/.next/
+frontend/out/
+
+#codex
+
+.codex/
+doc/

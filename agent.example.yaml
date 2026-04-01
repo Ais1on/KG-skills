@@ -3,6 +3,8 @@ api_base: https://api.deepseek.com/v1
 api_key_env: DEEPSEEK_API_KEY
 temperature: 0.0
 skills_dir: skills
+memory_backend: sqlite
+memory_path: .kg_agent/checkpoints.sqlite
 local_tool_modules:
   - kg_agent.builtin_tools
 mcp_servers:

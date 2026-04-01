@@ -193,10 +193,11 @@ kg-agent-web --host 127.0.0.1 --port 8000 --env-file .env
 - `GET /api/agents`
 - `POST /api/agents`
 - `GET /api/agents/{agent_id}`
+- `PATCH /api/agents/{agent_id}`（重命名线程 / Agent）
 - `POST /api/agents/{agent_id}/chat`（非流式）
 - `GET /api/agents/{agent_id}/chat/stream?message=...&thread_id=...`（SSE 流式）
 - `POST /api/agents/{agent_id}/save`
-- `DELETE /api/agents/{agent_id}`
+- `DELETE /api/agents/{agent_id}?purge_conversations=true|false`（默认 `true`，级联清理该线程会话）
 
 ### SSE 事件类型
 
@@ -210,3 +211,73 @@ kg-agent-web --host 127.0.0.1 --port 8000 --env-file .env
 
 说明：页面展示的是运行阶段与工具调用动态，不暴露模型私有思维链。
 
+
+
+
+### 持久化记忆
+
+新增配置：
+
+- `memory_backend`: `sqlite` 或 `memory`
+- `memory_path`: 当 `memory_backend=sqlite` 时生效，例如 `.kg_agent/checkpoints.sqlite`
+
+说明：
+
+- `sqlite`：会话按 `thread_id` 持久化，服务重启后可继续上下文
+- `memory`：仅进程内内存，重启后丢失
+
+
+### TS 前端开发（Vite + React）
+
+前端已迁移到 `frontend/`（TypeScript 架构）。
+
+开发模式：
+
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+
+生产构建并由 FastAPI 托管：
+
+```powershell
+cd frontend
+npm install
+npm run build
+cd ..
+kg-agent-web --host 127.0.0.1 --port 8000 --env-file .env
+```
+
+说明：
+
+- 开发时 `vite` 默认运行在 `http://127.0.0.1:5173`
+- `vite.config.ts` 已将 `/api` 代理到 `http://127.0.0.1:8000`
+- 构建产物在 `frontend/dist`，FastAPI 会优先返回该前端页面
+
+### M5 异步记忆摘要（严格版）
+
+`POST /api/v1/sessions/{session_id}/memory/summarize` 已切换为 `arq + Redis` 队列执行。
+
+需要先启动 Redis 和 worker：
+
+```powershell
+# Redis 环境变量（可选，默认 127.0.0.1:6379 db0）
+$env:KG_REDIS_HOST="127.0.0.1"
+$env:KG_REDIS_PORT="6379"
+$env:KG_REDIS_DB="0"
+
+# 启动 worker
+kg-agent-worker
+```
+
+任务查询接口：
+
+- `GET /api/v1/memory/jobs/{job_id}`
+- `GET /api/v1/sessions/{session_id}/memories`
+
+### M6 沙箱执行（严格版）
+
+`POST /api/v1/sandbox/execute` 仅使用 Docker 沙箱执行（`python:3.10-slim`，禁网，内存限制 256m）。
+
+如果 Docker daemon 不可用，接口会返回 `503`。

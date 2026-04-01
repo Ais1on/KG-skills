@@ -1,29 +1,11 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
-from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 import yaml
 
-
-@dataclass(slots=True)
-class MCPServerConfig:
-    transport: str = "stdio"
-    command: str = ""
-    args: list[str] = field(default_factory=list)
-    env: dict[str, str] = field(default_factory=dict)
-
-
-@dataclass(slots=True)
-class AgentConfig:
-    model: str = "deepseek-chat"
-    api_base: str = "https://api.deepseek.com/v1"
-    api_key_env: str = "DEEPSEEK_API_KEY"
-    temperature: float = 0.0
-    skills_dir: str = "skills"
-    local_tool_modules: list[str] = field(default_factory=lambda: ["kg_agent.builtin_tools"])
-    mcp_servers: dict[str, MCPServerConfig] = field(default_factory=dict)
+from .models import AgentConfig, MCPServerConfig
 
 
 def _to_mcp_server_config(value: Any) -> MCPServerConfig:
@@ -55,6 +37,10 @@ def load_config(path: str | Path | None = None) -> AgentConfig:
     temperature = float(raw.get("temperature", 0.0))
     skills_dir = str(raw.get("skills_dir", "skills"))
     local_tool_modules = [str(item) for item in raw.get("local_tool_modules", ["kg_agent.builtin_tools"])]
+    memory_backend = str(raw.get("memory_backend", "sqlite"))
+    memory_path = str(raw.get("memory_path", ".kg_agent/checkpoints.sqlite"))
+    system_prompt = str(raw.get("system_prompt", ""))
+    dangerous_tools = [str(item).strip() for item in (raw.get("dangerous_tools") or []) if str(item).strip()]
 
     servers: dict[str, MCPServerConfig] = {}
     for server_name, server_conf in (raw.get("mcp_servers") or {}).items():
@@ -68,4 +54,8 @@ def load_config(path: str | Path | None = None) -> AgentConfig:
         skills_dir=skills_dir,
         local_tool_modules=local_tool_modules,
         mcp_servers=servers,
+        memory_backend=memory_backend,
+        memory_path=memory_path,
+        system_prompt=system_prompt,
+        dangerous_tools=dangerous_tools,
     )

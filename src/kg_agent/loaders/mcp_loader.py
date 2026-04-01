@@ -7,7 +7,7 @@ from typing import Any
 
 from langchain_core.tools import BaseTool
 
-from .config import MCPServerConfig
+from ..config import MCPServerConfig
 
 
 @dataclass(slots=True)
