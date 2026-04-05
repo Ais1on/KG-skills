@@ -38,7 +38,7 @@ async def chat(agent_id: str, payload: ChatPayload) -> dict[str, Any]:
         thread_id = payload.thread_id or "default"
 
     try:
-        answer = await asyncio.to_thread(item.runtime.ask, text, thread_id)
+        answer = await item.runtime.aask(text, thread_id)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Agent call failed: {exc}") from exc
 
@@ -54,22 +54,20 @@ async def chat(agent_id: str, payload: ChatPayload) -> dict[str, Any]:
     }
 
 
-@router.get("/api/agents/{agent_id}/chat/stream")
+@router.post("/api/agents/{agent_id}/chat/stream")
 async def chat_stream(
     agent_id: str,
-    message: str,
-    thread_id: str = "default",
-    conversation_id: str | None = None,
+    payload: ChatPayload,
 ) -> StreamingResponse:
     item = get_agent_or_404(agent_id)
-    text = message.strip()
+    text = payload.message.strip()
     if not text:
         raise HTTPException(status_code=400, detail="message is required")
 
     conversation: dict[str, Any] | None = None
-    resolved_thread_id = thread_id
-    if conversation_id:
-        conversation = get_conversation_or_404(agent_id, conversation_id)
+    resolved_thread_id = payload.thread_id or "default"
+    if payload.conversation_id:
+        conversation = get_conversation_or_404(agent_id, payload.conversation_id)
         resolved_thread_id = conversation["thread_id"]
 
     async def event_generator() -> AsyncIterator[str]:

@@ -7,7 +7,7 @@ from typing import Any
 import yaml
 from fastapi import APIRouter, HTTPException
 
-from ..graph import build_agent
+from ..graph import build_agent_async
 from ..app_state import AGENT_LOCK, AGENT_STORE, ManagedAgent
 from ..schemas import AgentCreatePayload, AgentPatchPayload, SaveConfigPayload
 from ..services import (
@@ -17,6 +17,7 @@ from ..services import (
     load_dotenv,
     now_iso,
     payload_to_config,
+    persist_agent,
     remove_agent_or_404,
     rename_agent,
     safe_write_path,
@@ -45,7 +46,7 @@ def list_agents() -> dict[str, Any]:
 
 
 @router.post("/api/agents")
-def create_agent(payload: AgentCreatePayload) -> dict[str, Any]:
+async def create_agent(payload: AgentCreatePayload) -> dict[str, Any]:
     load_dotenv(payload.env_file)
     config = payload_to_config(payload)
 
@@ -53,7 +54,7 @@ def create_agent(payload: AgentCreatePayload) -> dict[str, Any]:
         raise HTTPException(status_code=400, detail=f"Missing API key env: {config.api_key_env}")
 
     try:
-        runtime = build_agent(config)
+        runtime = await build_agent_async(config)
     except Exception as exc:
         raise HTTPException(status_code=400, detail=f"Failed to build agent: {exc}") from exc
 
@@ -70,6 +71,7 @@ def create_agent(payload: AgentCreatePayload) -> dict[str, Any]:
 
     with AGENT_LOCK:
         AGENT_STORE[agent_id] = item
+    persist_agent(item)
 
     return {
         "agent_id": item.agent_id,

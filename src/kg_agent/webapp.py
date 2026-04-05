@@ -8,7 +8,9 @@ from fastapi.staticfiles import StaticFiles
 
 from .api import register_api_routes
 from .app_state import FRONTEND_ASSETS, FRONTEND_DIST, LEGACY_INDEX_HTML
-from .services import init_conversation_db, load_dotenv
+from .services import init_conversation_db, load_dotenv, restore_persisted_agents_async
+
+load_dotenv(".env")
 
 app = FastAPI(title="KG Agent Manager", version="0.4.0")
 
@@ -17,6 +19,11 @@ if FRONTEND_ASSETS.exists():
 
 init_conversation_db()
 register_api_routes(app)
+
+
+@app.on_event("startup")
+async def restore_agents_on_startup() -> None:
+    await restore_persisted_agents_async()
 
 
 @app.get("/")

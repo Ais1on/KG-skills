@@ -8,7 +8,7 @@ from fastapi import APIRouter, HTTPException
 
 from ..app_state import AGENT_LOCK, AGENT_STORE, ManagedAgent
 from ..config import AgentConfig, MCPServerConfig
-from ..graph import build_agent
+from ..graph import build_agent_async
 from ..schemas import AgentFromTemplatePayload
 from ..services import (
     config_to_dict,
@@ -17,6 +17,7 @@ from ..services import (
     list_templates,
     load_dotenv,
     now_iso,
+    persist_agent,
     skill_names,
     tool_names,
 )
@@ -52,6 +53,9 @@ def _template_to_config(template: dict[str, Any]) -> AgentConfig:
         mcp_servers=servers,
         memory_backend=str(model_config.get("memory_backend", "sqlite")),
         memory_path=str(model_config.get("memory_path", ".kg_agent/checkpoints.sqlite")),
+        redis_url=str(model_config.get("redis_url", "")),
+        redis_key_prefix=str(model_config.get("redis_key_prefix", "kg:langgraph:checkpoint")),
+        redis_ttl_seconds=int(model_config.get("redis_ttl_seconds", 0)),
         system_prompt=str(template.get("system_prompt", "")),
         dangerous_tools=dangerous,
     )
@@ -69,7 +73,7 @@ def get_templates(limit: int = 100, offset: int = 0) -> dict[str, Any]:
 
 
 @router.post("/api/v1/agents/from-template")
-def create_agent_from_template(payload: AgentFromTemplatePayload) -> dict[str, Any]:
+async def create_agent_from_template(payload: AgentFromTemplatePayload) -> dict[str, Any]:
     load_dotenv(payload.env_file)
     template = get_template_or_404(payload.template_id)
     config = _template_to_config(template)
@@ -78,7 +82,7 @@ def create_agent_from_template(payload: AgentFromTemplatePayload) -> dict[str, A
         raise HTTPException(status_code=400, detail=f"Missing API key env: {config.api_key_env}")
 
     try:
-        runtime = build_agent(config)
+        runtime = await build_agent_async(config)
     except Exception as exc:
         raise HTTPException(status_code=400, detail=f"Failed to build agent from template: {exc}") from exc
 
@@ -94,6 +98,7 @@ def create_agent_from_template(payload: AgentFromTemplatePayload) -> dict[str, A
 
     with AGENT_LOCK:
         AGENT_STORE[agent_id] = agent
+    persist_agent(agent)
 
     session = create_conversation(agent_id, payload.session_title, None)
 

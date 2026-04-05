@@ -111,6 +111,12 @@ Copy-Item agent.example.yaml agent.yaml
 - `api_base`: OpenAI 兼容接口地址（DeepSeek 默认 `https://api.deepseek.com/v1`）
 - `api_key_env`: 模型 API Key 的环境变量名（默认 `DEEPSEEK_API_KEY`）
 - `mcp_servers`: MCP server 配置（transport/command/args/env）
+- `memory_backend`: LangGraph checkpoint 后端，支持 `memory` / `sqlite` / `redis`
+- `redis_url`: 当 `memory_backend=redis` 时必填
+- `redis_key_prefix`: Redis checkpoint namespace 前缀
+- `redis_ttl_seconds`: checkpoint TTL，单位秒；内部会按分钟向上取整
+
+说明：当 `memory_backend=redis` 时，Redis 是硬依赖。若 `redis_url` 缺失、Redis 不可达或 Redis saver 初始化失败，Agent 会直接构建失败，不会回退到内存模式。
 
 ### 启动
 

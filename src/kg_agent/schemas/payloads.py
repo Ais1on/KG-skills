@@ -22,6 +22,9 @@ class AgentCreatePayload(BaseModel):
     mcp_servers: list[MCPServerPayload] = Field(default_factory=list)
     memory_backend: str = "sqlite"
     memory_path: str = ".kg_agent/checkpoints.sqlite"
+    redis_url: str = ""
+    redis_key_prefix: str = "kg:langgraph:checkpoint"
+    redis_ttl_seconds: int = 0
     system_prompt: str = ""
     dangerous_tools: list[str] = Field(default_factory=list)
     env_file: str = ".env"

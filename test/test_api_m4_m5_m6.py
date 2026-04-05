@@ -27,14 +27,43 @@ class _FakeGraph:
         yield {"event": "on_chain_end", "name": "assistant", "data": {}}
 
 
+_FakeSqliteSaver = type("SqliteSaver", (), {})
+_FakeSqliteSaver.__module__ = "langgraph.checkpoint.sqlite"
+
+
+class _FakeSyncGraph:
+    async def astream_events(self, payload, config=None, version=None):
+        raise AssertionError("sqlite saver path should use sync stream_events")
+
+    def stream_events(self, payload, config=None, version=None):
+        yield {"event": "on_chain_start", "name": "assistant", "data": {"input": {"message": "hi"}}}
+        yield {
+            "event": "on_chat_model_stream",
+            "name": "chat_model",
+            "data": {"chunk": type("Chunk", (), {"content": "ok-sync", "tool_call_chunks": [], "additional_kwargs": {}})()},
+        }
+        yield {"event": "on_chain_end", "name": "assistant", "data": {}}
+
+
 class _FakeRuntime:
     def __init__(self) -> None:
         self.graph = _FakeGraph()
 
 
+class _FakeSyncRuntime:
+    def __init__(self) -> None:
+        self.graph = _FakeSyncGraph()
+        self._checkpointer = _FakeSqliteSaver()
+
+
 class _FakeItem:
     def __init__(self) -> None:
         self.runtime = _FakeRuntime()
+
+
+class _FakeSyncItem:
+    def __init__(self) -> None:
+        self.runtime = _FakeSyncRuntime()
 
 
 class TestM4M5M6Apis(unittest.TestCase):
@@ -71,6 +100,18 @@ class TestM4M5M6Apis(unittest.TestCase):
 
         rows = asyncio.run(_collect())
         names = [row.get("event") for row in rows]
+        self.assertIn("orchestration", names)
+
+    def test_m4_sqlite_stream_uses_sync_events(self) -> None:
+        async def _collect() -> list[dict]:
+            events = []
+            async for evt in stream_agent_events(_FakeSyncItem(), "hello", "thread-test"):
+                events.append(evt)
+            return events
+
+        rows = asyncio.run(_collect())
+        names = [row.get("event") for row in rows]
+        self.assertIn("token", names)
         self.assertIn("orchestration", names)
 
     def test_m5_memory_summarize(self) -> None:

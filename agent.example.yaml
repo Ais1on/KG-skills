@@ -3,8 +3,10 @@ api_base: https://api.deepseek.com/v1
 api_key_env: DEEPSEEK_API_KEY
 temperature: 0.0
 skills_dir: skills
-memory_backend: sqlite
-memory_path: .kg_agent/checkpoints.sqlite
+memory_backend: redis
+redis_url: redis://127.0.0.1:6379/0
+redis_key_prefix: kg:langgraph:checkpoint
+redis_ttl_seconds: 0
 local_tool_modules:
   - kg_agent.builtin_tools
 mcp_servers:

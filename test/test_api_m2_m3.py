@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import os
 import unittest
 from pathlib import Path
@@ -22,6 +23,10 @@ class _DummyRuntime:
 
     def ask(self, message: str, thread_id: str = "default") -> str:
         return "dummy"
+
+    async def aask(self, message: str, thread_id: str = "default") -> str:
+        await asyncio.sleep(0)
+        return f"async:{message}:{thread_id}"
 
 
 class TestM2M3Apis(unittest.TestCase):
@@ -71,8 +76,12 @@ class TestM2M3Apis(unittest.TestCase):
         self.assertIn("tools_config", first)
 
     def test_create_agent_from_template(self) -> None:
-        original_build_agent = templates_api.build_agent
-        templates_api.build_agent = lambda config: _DummyRuntime()
+        original_build_agent_async = templates_api.build_agent_async
+
+        async def _fake_build_agent_async(config):
+            return _DummyRuntime()
+
+        templates_api.build_agent_async = _fake_build_agent_async
         try:
             resp = self.client.post(
                 "/api/v1/agents/from-template",
@@ -83,7 +92,7 @@ class TestM2M3Apis(unittest.TestCase):
                 },
             )
         finally:
-            templates_api.build_agent = original_build_agent
+            templates_api.build_agent_async = original_build_agent_async
 
         self.assertEqual(resp.status_code, 200)
         data = resp.json()
@@ -122,6 +131,25 @@ class TestM2M3Apis(unittest.TestCase):
             json={"confirmation_id": "missing-id", "approved": True},
         )
         self.assertEqual(resp.status_code, 404)
+
+    def test_chat_api_uses_async_runtime(self) -> None:
+        agent_id = "agent-chat"
+        item = app_state.ManagedAgent(
+            agent_id=agent_id,
+            name="chat-agent",
+            created_at="2026-04-04T00:00:00Z",
+            config=type("Config", (), {"model": "test"})(),
+            runtime=_DummyRuntime(),
+        )
+        with app_state.AGENT_LOCK:
+            app_state.AGENT_STORE[agent_id] = item
+
+        resp = self.client.post(
+            f"/api/agents/{agent_id}/chat",
+            json={"message": "hello async", "thread_id": "thread-123"},
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json()["answer"], "async:hello async:thread-123")
 
 
 if __name__ == "__main__":

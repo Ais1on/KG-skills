@@ -53,8 +53,12 @@ class TestAgentThreadApis(unittest.TestCase):
             app_state.AGENT_STORE.clear()
 
     def _create_agent(self, name: str = "thread-a") -> dict:
-        original_build_agent = agents_api.build_agent
-        agents_api.build_agent = lambda config: _DummyRuntime()
+        original_build_agent_async = agents_api.build_agent_async
+
+        async def _fake_build_agent_async(config):
+            return _DummyRuntime()
+
+        agents_api.build_agent_async = _fake_build_agent_async
         try:
             resp = self.client.post(
                 "/api/agents",
@@ -64,7 +68,7 @@ class TestAgentThreadApis(unittest.TestCase):
                 },
             )
         finally:
-            agents_api.build_agent = original_build_agent
+            agents_api.build_agent_async = original_build_agent_async
 
         self.assertEqual(resp.status_code, 200)
         return resp.json()

@@ -39,6 +39,9 @@ def load_config(path: str | Path | None = None) -> AgentConfig:
     local_tool_modules = [str(item) for item in raw.get("local_tool_modules", ["kg_agent.builtin_tools"])]
     memory_backend = str(raw.get("memory_backend", "sqlite"))
     memory_path = str(raw.get("memory_path", ".kg_agent/checkpoints.sqlite"))
+    redis_url = str(raw.get("redis_url", ""))
+    redis_key_prefix = str(raw.get("redis_key_prefix", "kg:langgraph:checkpoint"))
+    redis_ttl_seconds = int(raw.get("redis_ttl_seconds", 0))
     system_prompt = str(raw.get("system_prompt", ""))
     dangerous_tools = [str(item).strip() for item in (raw.get("dangerous_tools") or []) if str(item).strip()]
 
@@ -56,6 +59,9 @@ def load_config(path: str | Path | None = None) -> AgentConfig:
         mcp_servers=servers,
         memory_backend=memory_backend,
         memory_path=memory_path,
+        redis_url=redis_url,
+        redis_key_prefix=redis_key_prefix,
+        redis_ttl_seconds=redis_ttl_seconds,
         system_prompt=system_prompt,
         dangerous_tools=dangerous_tools,
     )

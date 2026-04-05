@@ -1,4 +1,4 @@
-﻿[project]
+[project]
 name = "kg-langgraph-agent"
 version = "0.1.0"
 description = "LangGraph agent scaffold with local tools, MCP tools, and skill loading."
@@ -10,6 +10,8 @@ dependencies = [
   "langchain-openai>=0.3.0",
   "langgraph>=0.3.0",
   "langgraph-checkpoint-sqlite>=2.0.0",
+  "langgraph-checkpoint-redis>=0.0.1",
+  "aiosqlite>=0.20.0",
   "pyyaml>=6.0.1",
   "uvicorn>=0.30.0",
   "arq>=0.26.0",

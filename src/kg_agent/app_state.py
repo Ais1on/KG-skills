@@ -18,7 +18,7 @@ class ManagedAgent:
 
 
 APP_ROOT = Path(__file__).resolve().parent
-WORKSPACE_ROOT = Path.cwd().resolve()
+WORKSPACE_ROOT = APP_ROOT.parent.parent
 FRONTEND_DIST = WORKSPACE_ROOT / "frontend" / "dist"
 FRONTEND_ASSETS = FRONTEND_DIST / "assets"
 LEGACY_INDEX_HTML = APP_ROOT / "web" / "index.html"

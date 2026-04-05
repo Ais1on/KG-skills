@@ -22,5 +22,8 @@ class AgentConfig:
     mcp_servers: dict[str, MCPServerConfig] = field(default_factory=dict)
     memory_backend: str = "sqlite"
     memory_path: str = ".kg_agent/checkpoints.sqlite"
+    redis_url: str = ""
+    redis_key_prefix: str = "kg:langgraph:checkpoint"
+    redis_ttl_seconds: int = 0
     system_prompt: str = ""
     dangerous_tools: list[str] = field(default_factory=list)

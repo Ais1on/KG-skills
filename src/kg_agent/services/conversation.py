@@ -96,6 +96,18 @@ def init_conversation_db() -> None:
                 """
             )
             conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_tpl_name ON agent_templates(name)")
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS agents (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    config_json TEXT NOT NULL DEFAULT '{}',
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                )
+                """
+            )
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_agents_updated ON agents(updated_at)")
 
             # Seed one default template for M2 bootstrap.
             exists = conn.execute("SELECT 1 FROM agent_templates LIMIT 1").fetchone()
@@ -120,12 +132,94 @@ def init_conversation_db() -> None:
                             "local_tool_modules": ["kg_agent.builtin_tools"],
                             "memory_backend": "sqlite",
                             "memory_path": ".kg_agent/checkpoints.sqlite",
+                            "redis_url": "",
+                            "redis_key_prefix": "kg:langgraph:checkpoint",
+                            "redis_ttl_seconds": 0,
                         }, ensure_ascii=False),
                         json.dumps({"dangerous_tools": []}, ensure_ascii=False),
                         now,
                         now,
                     ),
                 )
+            conn.commit()
+        finally:
+            conn.close()
+
+
+def upsert_agent_record(
+    agent_id: str,
+    name: str,
+    config_json: str,
+    *,
+    created_at: str,
+) -> None:
+    now = now_iso()
+    with CONV_LOCK:
+        conn = sqlite3.connect(CONV_DB_PATH)
+        try:
+            conn.execute(
+                """
+                INSERT INTO agents (id, name, config_json, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                    name = excluded.name,
+                    config_json = excluded.config_json,
+                    updated_at = excluded.updated_at
+                """,
+                (agent_id, name, config_json, created_at, now),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+
+def list_agent_records() -> list[dict[str, Any]]:
+    with CONV_LOCK:
+        conn = sqlite3.connect(CONV_DB_PATH)
+        conn.row_factory = sqlite3.Row
+        try:
+            rows = conn.execute(
+                """
+                SELECT id, name, config_json, created_at, updated_at
+                FROM agents
+                ORDER BY created_at ASC
+                """
+            ).fetchall()
+            return [
+                {
+                    "agent_id": str(row["id"]),
+                    "name": str(row["name"]),
+                    "config_json": str(row["config_json"]),
+                    "created_at": str(row["created_at"]),
+                    "updated_at": str(row["updated_at"]),
+                }
+                for row in rows
+            ]
+        finally:
+            conn.close()
+
+
+def update_agent_record_name(agent_id: str, name: str) -> None:
+    now = now_iso()
+    with CONV_LOCK:
+        conn = sqlite3.connect(CONV_DB_PATH)
+        try:
+            result = conn.execute(
+                "UPDATE agents SET name = ?, updated_at = ? WHERE id = ?",
+                (name, now, agent_id),
+            )
+            conn.commit()
+            if result.rowcount == 0:
+                raise HTTPException(status_code=404, detail=f"Agent not found: {agent_id}")
+        finally:
+            conn.close()
+
+
+def delete_agent_record(agent_id: str) -> None:
+    with CONV_LOCK:
+        conn = sqlite3.connect(CONV_DB_PATH)
+        try:
+            conn.execute("DELETE FROM agents WHERE id = ?", (agent_id,))
             conn.commit()
         finally:
             conn.close()
